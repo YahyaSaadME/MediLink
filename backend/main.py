@@ -38,18 +38,18 @@ reader = easyocr.Reader(
 )
 
 # Initialize Groq client with API key
-client = Groq(api_key="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")
-
+from groq import Groq
+client = Groq(api_key="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")
 # In-memory store for session data
 sessions = {}
 
-# Define schema for lab report structured output
+# Enhanced schema for lab report structured output with new feature fields
 LAB_REPORT_SCHEMA = {
     "type": "object",
     "properties": {
         "summary": {
             "type": "string",
-            "description": "Brief overview of the lab report findings"
+            "description": "Brief overview of the lab report findings in human-friendly language"
         },
         "test_results": {
             "type": "array",
@@ -103,29 +103,140 @@ LAB_REPORT_SCHEMA = {
                         "enum": ["HIGH", "LOW"],
                         "description": "Whether the value is high or low"
                     },
+                    "severity": {
+                        "type": "string",
+                        "enum": ["MILD", "MODERATE", "SEVERE"],
+                        "description": "Severity of the abnormal finding"
+                    },
                     "concerns": {
                         "type": "string",
                         "description": "Potential health concerns related to this abnormal value"
                     }
                 },
-                "required": ["test_name", "status"]
+                "required": ["test_name", "status", "severity"]
             }
         },
         "interpretation": {
             "type": "string",
             "description": "Overall interpretation of lab results in plain language"
+        },
+        
+        "recommended_supplements": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Name of recommended supplement or medicine"
+                    },
+                    "dosage": {
+                        "type": "string",
+                        "description": "Recommended dosage (e.g., 1000mg daily)"
+                    },
+                    "is_prescription": {
+                        "type": "boolean",
+                        "description": "Whether this requires a prescription (true) or is over-the-counter (false)"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Why this supplement is recommended"
+                    },
+                    "warnings": {
+                        "type": "string",
+                        "description": "Any warnings or side effects to be aware of"
+                    }
+                },
+                "required": ["name", "is_prescription", "reason"]
+            }
+        },
+        "lifestyle_recommendations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "enum": ["DIET", "EXERCISE", "SLEEP", "OTHER"],
+                        "description": "Category of lifestyle recommendation"
+                    },
+                    "recommendations": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "description": "Specific recommendation within this category"
+                        }
+                    }
+                },
+                "required": ["category", "recommendations"]
+            }
+        },
+        "follow_up_tests": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "test_name": {
+                        "type": "string",
+                        "description": "Name of recommended follow-up test"
+                    },
+                    "timeline": {
+                        "type": "string",
+                        "description": "When this test should be done (e.g., '3 months', 'After medication course')"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Why this follow-up test is recommended"
+                    }
+                },
+                "required": ["test_name", "timeline"]
+            }
+        },
+        "doctor_questions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "Question to ask doctor based on these results"
+                    },
+                    "related_to": {
+                        "type": "string",
+                        "description": "Which test or finding this question relates to"
+                    }
+                },
+                "required": ["question"]
+            }
+        },
+        "report_tags": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Tag name for categorizing this report"
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "Category this tag belongs to (e.g., Specialty, Test Type)"
+                    }
+                },
+                "required": ["name"]
+            }
         }
     },
     "required": ["summary", "test_results"]
 }
 
-# Define schema for prescription structured output
+# Enhanced schema for prescription structured output with new feature fields
 PRESCRIPTION_SCHEMA = {
     "type": "object",
     "properties": {
         "summary": {
             "type": "string",
-            "description": "Brief overview of the prescription"
+            "description": "Brief overview of the prescription in human-friendly language"
         },
         "medications": {
             "type": "array",
@@ -189,6 +300,62 @@ PRESCRIPTION_SCHEMA = {
                     "type": "string",
                     "description": "Number of refills allowed"
                 }
+            }
+        },
+        
+        "lifestyle_recommendations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "enum": ["DIET", "EXERCISE", "SLEEP", "OTHER"],
+                        "description": "Category of lifestyle recommendation"
+                    },
+                    "recommendations": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "description": "Specific recommendation within this category"
+                        }
+                    }
+                },
+                "required": ["category", "recommendations"]
+            }
+        },
+        "doctor_questions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "Question to ask doctor related to this prescription"
+                    },
+                    "related_to": {
+                        "type": "string",
+                        "description": "Which medication or condition this question relates to"
+                    }
+                },
+                "required": ["question"]
+            }
+        },
+        "report_tags": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Tag name for categorizing this prescription"
+                    },
+                    "category": {
+                        "type": "string",
+                        "description": "Category this tag belongs to (e.g., Medication Type, Condition)"
+                    }
+                },
+                "required": ["name"]
             }
         }
     },
@@ -459,17 +626,19 @@ async def extract_text(file: UploadFile = File(...)):
         # Identify document type
         doc_type = identify_document_type(redacted_text)
         
-        # Create a prompt based on the document type with enhanced prompt engineering and schema
+        # Enhanced prompts for more comprehensive analysis
         if doc_type == "prescription":
             system_prompt = """You are a medical assistant AI specialized in interpreting prescriptions. 
             Analyze the provided prescription text and extract the information according to the specified JSON schema.
             
             IMPORTANT GUIDELINES:
+            - Create a human-friendly summary that explains the prescription's purpose
             - NEVER include any personal information like patient names, addresses, or contact details
-            - Use medical terminology but explain it in simple terms where appropriate
+            - Add lifestyle recommendations based on common advice for patients on these medications
+            - Suggest doctor questions the patient should ask about this prescription
+            - Add relevant tags to categorize this prescription
             - If information is unclear or missing, use null values rather than guessing
-            - Be precise about extracting medication names, dosages, and instructions
-            - Provide a clear, accurate summary of the prescription
+            - Provide warnings about medication interactions or side effects where relevant
             """
             
             schema = json.dumps(PRESCRIPTION_SCHEMA, indent=2)
@@ -492,11 +661,14 @@ async def extract_text(file: UploadFile = File(...)):
             Analyze the provided lab report text and extract the information according to the specified JSON schema.
             
             IMPORTANT GUIDELINES:
+            - Create a human-friendly executive summary that explains key findings in plain language
+            - Categorize abnormal values with severity levels (MILD, MODERATE, SEVERE)
+            - Suggest appropriate supplements or medications based on test results
+            - Provide lifestyle and diet recommendations specific to these lab results
+            - Recommend follow-up tests that would complement these findings
+            - Generate questions the patient should ask their doctor
+            - Add relevant tags to categorize this report
             - NEVER include any personal information like patient names, addresses, or contact details
-            - Be precise about extracting test names, values, and reference ranges
-            - Clearly identify abnormal values and explain their significance
-            - If information is unclear or missing, use null values rather than guessing
-            - Provide a clear, accurate summary of the lab results
             """
             
             schema = json.dumps(LAB_REPORT_SCHEMA, indent=2)
